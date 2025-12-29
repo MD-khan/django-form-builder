@@ -1,0 +1,72 @@
+{% extends 'formbuilder/base.html' %}
+{% load static %}
+
+{% block title %}{{ form.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">{{ form.name }}</h3>
+            </div>
+            <div class="card-body">
+                {% if form.description %}
+                <p class="text-muted mb-4">{{ form.description }}</p>
+                {% endif %}
+                
+                <form method="post" action="{% url 'formbuilder:form_submit' slug=form.slug %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- Fields without section -->
+                    {% for field in fields_without_section %}
+                        {% include 'formbuilder/partials/field_render.html' with field=field %}
+                    {% endfor %}
+                    
+                    <!-- Sections with their fields -->
+                    {% for section in sections %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">{{ section.title }}</h5>
+                            {% if section.description %}
+                            <small class="text-muted">{{ section.description }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% for field in section.fields.all %}
+                                {% include 'formbuilder/partials/field_render.html' with field=field %}
+                            {% empty %}
+                                <p class="text-muted">No fields in this section.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-send me-2"></i>Submit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Pass conditional logic data from Django to JavaScript
+    const fieldConditions = {
+        {% for field in fields_without_section %}
+        {{ field.id }}: {{ field.conditional_logic|safe }}{% if not forloop.last or sections %},{% endif %}
+        {% endfor %}
+        {% for section in sections %}
+            {% for field in section.fields.all %}
+        {{ field.id }}: {{ field.conditional_logic|safe }}{% if not forloop.last %},{% endif %}
+            {% endfor %}{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+</script>
+<script src="{% static 'formbuilder/js/form_display.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,83 @@
+<div class="mb-3 field-wrapper" data-field-id="{{ field.id }}">
+    <label class="form-label">
+        {{ field.label }}
+        {% if field.is_required %}<span class="text-danger">*</span>{% endif %}
+    </label>
+    
+    {% if field.field_type.input_type == 'text' %}
+        <input type="text" class="form-control" name="field_{{ field.id }}" 
+            placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+    
+    {% elif field.field_type.input_type == 'textarea' %}
+        <textarea class="form-control" name="field_{{ field.id }}" rows="4" 
+            placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}></textarea>
+    
+    {% elif field.field_type.input_type == 'email' %}
+        <input type="email" class="form-control" name="field_{{ field.id }}" 
+            placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+    
+    {% elif field.field_type.input_type == 'tel' %}
+        <input type="tel" class="form-control" name="field_{{ field.id }}" 
+            placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+    
+    {% elif field.field_type.input_type == 'number' %}
+        <input type="number" class="form-control" name="field_{{ field.id }}" 
+            placeholder="{{ field.placeholder }}" {% if field.is_required %}required{% endif %}>
+    
+    {% elif field.field_type.input_type == 'date' %}
+        <input type="date" class="form-control" name="field_{{ field.id }}" 
+            {% if field.is_required %}required{% endif %}>
+    
+    {% elif field.field_type.input_type == 'select' %}
+        <select class="form-select" name="field_{{ field.id }}" {% if field.is_required %}required{% endif %}>
+            <option value="">-- Select --</option>
+            {% for choice in field.options.choices %}
+                <option value="{{ choice.value }}">{{ choice.label }}</option>
+            {% endfor %}
+        </select>
+    
+    {% elif field.field_type.input_type == 'radio' %}
+        {% for choice in field.options.choices %}
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="field_{{ field.id }}" 
+                value="{{ choice.value }}" id="field_{{ field.id }}_{{ forloop.counter }}"
+                {% if field.is_required %}required{% endif %}>
+            <label class="form-check-label" for="field_{{ field.id }}_{{ forloop.counter }}">
+                {{ choice.label }}
+            </label>
+        </div>
+        {% endfor %}
+    
+    {% elif field.field_type.input_type == 'checkbox' %}
+        {% for choice in field.options.choices %}
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="field_{{ field.id }}" 
+                value="{{ choice.value }}" id="field_{{ field.id }}_{{ forloop.counter }}">
+            <label class="form-check-label" for="field_{{ field.id }}_{{ forloop.counter }}">
+                {{ choice.label }}
+            </label>
+        </div>
+        {% endfor %}
+    
+    {% elif field.field_type.input_type == 'yes_no' %}
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="field_{{ field.id }}" 
+                value="Yes" id="field_{{ field.id }}_yes" {% if field.is_required %}required{% endif %}>
+            <label class="form-check-label" for="field_{{ field.id }}_yes">Yes</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="field_{{ field.id }}" 
+                value="No" id="field_{{ field.id }}_no">
+            <label class="form-check-label" for="field_{{ field.id }}_no">No</label>
+        </div>
+    
+    {% elif field.field_type.input_type == 'file' %}
+        <input type="file" class="form-control" name="field_{{ field.id }}" 
+            {% if field.is_required %}required{% endif %}>
+    
+    {% endif %}
+    
+    {% if field.help_text %}
+    <div class="form-text">{{ field.help_text }}</div>
+    {% endif %}
+</div>

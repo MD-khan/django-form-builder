@@ -1,0 +1,484 @@
+{% extends 'formbuilder/base.html' %}
+{% load static %}
+
+{% block title %}Edit: {{ form.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>{{ form.name }}</h2>
+        <span class="badge bg-{% if form.status == 'published' %}success{% elif form.status == 'draft' %}warning{% else %}secondary{% endif %}">
+            {{ form.get_status_display }}
+        </span>
+    </div>
+    <div>
+        <a href="{% url 'formbuilder:form_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to List
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Left Panel: Field Types -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-grid me-2"></i>Field Types</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Click to add field to form</p>
+                {% for field_type in field_types %}
+                <div class="field-card card mb-2" data-field-type-id="{{ field_type.id }}" data-field-type-name="{{ field_type.name }}" data-input-type="{{ field_type.input_type }}" data-has-options="{{ field_type.has_options|yesno:'true,false' }}">
+                    <div class="card-body py-2 px-3">
+                        <i class="bi bi-{% if field_type.input_type == 'text' %}fonts{% elif field_type.input_type == 'textarea' %}text-paragraph{% elif field_type.input_type == 'email' %}envelope{% elif field_type.input_type == 'tel' %}phone{% elif field_type.input_type == 'number' %}123{% elif field_type.input_type == 'date' %}calendar{% elif field_type.input_type == 'select' %}chevron-down{% elif field_type.input_type == 'radio' %}circle{% elif field_type.input_type == 'checkbox' %}check-square{% elif field_type.input_type == 'yes_no' %}toggle-on{% elif field_type.input_type == 'file' %}file-earmark-arrow-up{% else %}input-cursor{% endif %} me-2"></i>
+                        {{ field_type.name }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Form Settings -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Form Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'formbuilder:form_edit' pk=form.pk %}" id="form-settings">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" name="status" id="form-status">
+                            <option value="draft" {% if form.status == 'draft' %}selected{% endif %}>Draft</option>
+                            <option value="published" {% if form.status == 'published' %}selected{% endif %}>Published</option>
+                            <option value="archived" {% if form.status == 'archived' %}selected{% endif %}>Archived</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" id="save-settings">
+                        <i class="bi bi-check-circle me-2"></i>Save Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Panel: Form Canvas -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-layout-text-window me-2"></i>Form Fields</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" id="add-section-btn">
+                        <i class="bi bi-folder-plus me-1"></i>Add Section
+                    </button>
+                    <span class="badge bg-primary ms-2" id="field-count">{{ form.fields.count }} fields</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="form-canvas p-3" id="form-canvas">
+                    {% if sections or form.fields.exists %}
+                        
+                        <!-- Fields without section -->
+                        {% for field in form.fields.all %}
+                            {% if not field.section %}
+                            <div class="card mb-2 field-item" data-field-id="{{ field.id }}">
+                                <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-grip-vertical me-2 text-muted drag-handle"></i>
+                                        <strong>{{ field.label }}</strong>
+                                        <span class="badge bg-secondary ms-2">{{ field.field_type.name }}</span>
+                                        {% if field.is_required %}
+                                        <span class="badge bg-danger ms-1">Required</span>
+                                        {% endif %}
+                                        {% if field.conditional_logic.rules %}
+                                        <span class="badge bg-info ms-1">Conditional</span>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-primary edit-field" data-field-id="{{ field.id }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger delete-field" data-field-id="{{ field.id }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <!-- Sections with their fields -->
+                        {% for section in sections %}
+                        <div class="card mb-3 section-item" data-section-id="{{ section.id }}">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-folder me-2"></i>
+                                    <strong>{{ section.title }}</strong>
+                                    {% if section.description %}
+                                    <small class="text-muted ms-2">{{ section.description }}</small>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary edit-section" data-section-id="{{ section.id }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-section" data-section-id="{{ section.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body section-fields" data-section-id="{{ section.id }}">
+                                {% for field in section.fields.all %}
+                                <div class="card mb-2 field-item" data-field-id="{{ field.id }}">
+                                    <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-grip-vertical me-2 text-muted drag-handle"></i>
+                                            <strong>{{ field.label }}</strong>
+                                            <span class="badge bg-secondary ms-2">{{ field.field_type.name }}</span>
+                                            {% if field.is_required %}
+                                            <span class="badge bg-danger ms-1">Required</span>
+                                            {% endif %}
+                                            {% if field.conditional_logic.rules %}
+                                            <span class="badge bg-info ms-1">Conditional</span>
+                                            {% endif %}
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-primary edit-field" data-field-id="{{ field.id }}">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger delete-field" data-field-id="{{ field.id }}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <p class="text-muted text-center py-3 mb-0 empty-section-message">Drag fields here or click a field type to add</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                    {% else %}
+                        <div class="text-center py-5 text-muted" id="empty-message">
+                            <i class="bi bi-plus-circle display-4"></i>
+                            <p class="mt-3">Click on a field type to add it here, or add a section first</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Section Modal -->
+<div class="modal fade" id="addSectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Section</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-section-form">
+                    <div class="mb-3">
+                        <label class="form-label">Section Title *</label>
+                        <input type="text" class="form-control" id="section-title" name="title" required placeholder="e.g., Personal Information">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="section-description" name="description" rows="2" placeholder="Optional description"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-section">
+                    <i class="bi bi-plus-circle me-2"></i>Add Section
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Section Modal -->
+<div class="modal fade" id="editSectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Section</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-section-form">
+                    <input type="hidden" id="edit-section-id">
+                    <div class="mb-3">
+                        <label class="form-label">Section Title *</label>
+                        <input type="text" class="form-control" id="edit-section-title" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="edit-section-description" name="description" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="update-section">
+                    <i class="bi bi-check-circle me-2"></i>Update Section
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Field Modal -->
+<div class="modal fade" id="addFieldModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Field</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-field-form">
+                    <input type="hidden" id="field-type-id" name="field_type_id">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Field Type</label>
+                                <input type="text" class="form-control" id="field-type-name" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Section</label>
+                                <select class="form-select" id="field-section" name="section_id">
+                                    <option value="">-- No Section --</option>
+                                    {% for section in sections %}
+                                    <option value="{{ section.id }}">{{ section.title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Label *</label>
+                                <input type="text" class="form-control" id="field-label" name="label" required placeholder="e.g., Employee Name">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Help Text</label>
+                                <input type="text" class="form-control" id="field-help" name="help_text" placeholder="Optional help text">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Placeholder</label>
+                        <input type="text" class="form-control" id="field-placeholder" name="placeholder" placeholder="Placeholder text">
+                    </div>
+                    
+                    <div class="mb-3" id="options-group" style="display: none;">
+                        <label class="form-label">Options (one per line) *</label>
+                        <textarea class="form-control" id="field-options" name="options" rows="4" placeholder="Option 1&#10;Option 2&#10;Option 3"></textarea>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="field-required" name="is_required">
+                        <label class="form-check-label" for="field-required">Required field</label>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Conditional Logic Section -->
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enable-conditional">
+                            <label class="form-check-label" for="enable-conditional">
+                                <strong>Show this field conditionally</strong>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="conditional-logic-section" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <p class="mb-2"><strong>Show this field when:</strong></p>
+                                
+                                <div id="condition-rules">
+                                    <!-- Rules will be added here -->
+                                </div>
+                                
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-condition-rule">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Condition
+                                </button>
+                                
+                                <div class="mt-3" id="logic-type-group" style="display: none;">
+                                    <label class="form-label">When multiple conditions:</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="logic_type" value="AND" id="logic-and" checked>
+                                        <label class="form-check-label" for="logic-and">ALL conditions must be true</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="logic_type" value="OR" id="logic-or">
+                                        <label class="form-check-label" for="logic-or">ANY condition must be true</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-field">
+                    <i class="bi bi-plus-circle me-2"></i>Add Field
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Field Modal -->
+<div class="modal fade" id="editFieldModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Field</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-field-form">
+                    <input type="hidden" id="edit-field-id" name="field_id">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Label *</label>
+                                <input type="text" class="form-control" id="edit-field-label" name="label" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Section</label>
+                                <select class="form-select" id="edit-field-section" name="section_id">
+                                    <option value="">-- No Section --</option>
+                                    {% for section in sections %}
+                                    <option value="{{ section.id }}">{{ section.title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Help Text</label>
+                                <input type="text" class="form-control" id="edit-field-help" name="help_text">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Placeholder</label>
+                                <input type="text" class="form-control" id="edit-field-placeholder" name="placeholder">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="edit-options-group" style="display: none;">
+                        <label class="form-label">Options (one per line)</label>
+                        <textarea class="form-control" id="edit-field-options" name="options" rows="4"></textarea>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="edit-field-required" name="is_required">
+                        <label class="form-check-label" for="edit-field-required">Required field</label>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Conditional Logic Section -->
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="edit-enable-conditional">
+                            <label class="form-check-label" for="edit-enable-conditional">
+                                <strong>Show this field conditionally</strong>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="edit-conditional-logic-section" style="display: none;">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <p class="mb-2"><strong>Show this field when:</strong></p>
+                                
+                                <div id="edit-condition-rules">
+                                    <!-- Rules will be added here -->
+                                </div>
+                                
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="edit-add-condition-rule">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Condition
+                                </button>
+                                
+                                <div class="mt-3" id="edit-logic-type-group" style="display: none;">
+                                    <label class="form-label">When multiple conditions:</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="edit_logic_type" value="AND" id="edit-logic-and" checked>
+                                        <label class="form-check-label" for="edit-logic-and">ALL conditions must be true</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="edit_logic_type" value="OR" id="edit-logic-or">
+                                        <label class="form-check-label" for="edit-logic-or">ANY condition must be true</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="update-field">
+                    <i class="bi bi-check-circle me-2"></i>Update Field
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{% static 'formbuilder/js/form_builder.js' %}"></script>
+<script>
+    initFormBuilder({
+        formId: {{ form.pk }},
+        csrfToken: '{{ csrf_token }}',
+        existingFields: [
+            {% for field in form.fields.all %}
+            {
+                id: {{ field.id }},
+                label: "{{ field.label|escapejs }}",
+                input_type: "{{ field.field_type.input_type }}",
+                options: {{ field.options|safe }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        existingSections: [
+            {% for section in sections %}
+            {
+                id: {{ section.id }},
+                title: "{{ section.title|escapejs }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    });
+</script>
+{% endblock %}
